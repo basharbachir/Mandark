@@ -2,7 +2,7 @@
 using System.IO;
 using System.Runtime.InteropServices;
 
-namespace HackForums.gigajew
+namespace Mandark
 {
     /// <summary>
     /// Tiny x64 RunPE by gigajew
